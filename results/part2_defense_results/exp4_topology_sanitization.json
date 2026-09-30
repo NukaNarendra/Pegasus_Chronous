@@ -1,0 +1,29 @@
+{
+  "experiment": "exp4_topology",
+  "benign_count": 500,
+  "ghost_count": 50,
+  "topology_result": {
+    "auc_roc": 1.0,
+    "optimal_threshold": 1.7119640696128366,
+    "sensitivity_at_threshold": 1.0,
+    "specificity_at_threshold": 1.0,
+    "youdens_j": 1.0,
+    "mean_energy_benign": 1.4120092509642979,
+    "std_energy_benign": 0.02462476802314017,
+    "mean_energy_ghost": 1.7579692128915436,
+    "std_energy_ghost": 0.02057666429853208,
+    "cohens_d_energy": 15.24645820575197
+  },
+  "fpr_curve": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "tpr_curve": [
+    0.0,
+    0.02,
+    1.0,
+    1.0
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "experiment": "exp6_vib",
+  "beta_sweep": [
+    0.0,
+    0.1,
+    0.5,
+    1.0,
+    2.0,
+    5.0,
+    10.0
+  ],
+  "pareto_result": {
+    "points": [
+      {
+        "beta": 0.0,
+        "factual_recall": 0.95,
+        "dgss": 0.885,
+        "mutual_info_bound": 1.0,
+        "reconstruction_loss": 0.050000000000000044
+      },
+      {
+        "beta": 0.1,
+        "factual_recall": 0.9443170658512384,
+        "dgss": 0.7400377860419194,
+        "mutual_info_bound": 0.9090909090909091,
+        "reconstruction_loss": 0.055682934148761576
+      },
+      {
+        "beta": 0.5,
+        "factual_recall": 0.9219232568710827,
+        "dgss": 0.36278130057172725,
+        "mutual_info_bound": 0.6666666666666666,
+        "reconstruction_loss": 0.07807674312891733
+      },
+      {
+        "beta": 1.0,
+        "factual_recall": 0.8946763069050362,
+        "dgss": 0.15046302163499614,
+        "mutual_info_bound": 0.5,
+        "reconstruction_loss": 0.10532369309496381
+      },
+      {
+        "beta": 2.0,
+        "factual_recall": 0.8425744148812996,
+        "dgss": 0.029044875753617454,
+        "mutual_info_bound": 0.3333333333333333,
+        "reconstruction_loss": 0.15742558511870042
+      },
+      {
+        "beta": 5.0,
+        "factual_recall": 0.703777309647632,
+        "dgss": 0.005108600627596278,
+        "mutual_info_bound": 0.16666666666666666,
+        "reconstruction_loss": 0.29622269035236803
+      },
+      {
+        "beta": 10.0,
+        "factual_recall": 0.5213710542893252,
+        "dgss": 0.0050000134023821755,
+        "mutual_info_bound": 0.09090909090909091,
+        "reconstruction_loss": 0.4786289457106748
+      }
+    ],
+    "optimal_beta": 2.0,
+    "min_dgss": 0.0050000134023821755,
+    "max_recall": 0.95
+  },
+  "optimal_beta": 2.0,
+  "dgss_at_optimal": 0.029044875753617454,
+  "recall_at_optimal": 0.8425744148812996
+}

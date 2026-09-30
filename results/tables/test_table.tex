@@ -1,0 +1,16 @@
+\begin{table*}[t]
+\centering
+\small
+\caption{\textbf{Main Results: Cross-Session Ghost State Contamination Across Frontier Models.}
+Comparison of Evaluation vs. Deployment conditions. ECBS reflects standardized behavioral shift;
+ESG represents the Evaluation Safety Gap in Deliberate Ghost State Scores (DGSS).
+Statistical significance evaluated at $\alpha = 0.05$ with Bonferroni correction ($p_{\text{adj}} < 0.0071$).}
+\label{tab:main_results}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Model Architecture} & \textbf{ECBS ($d$)} & \textbf{$t$-statistic} & \textbf{$p$-value} & \textbf{DGSS$_{\text{eval}}$} & \textbf{DGSS$_{\text{deploy}}$} & \textbf{ESG Gap ($\Delta$)} \\
+\midrule
+Test Model & 1.50 (1.50) & 9.20 & 1.00e-05$^{***}$ & 0.800 & 0.100 & \textbf{+0.700} \\
+\bottomrule
+\end{tabular}
+\end{table*}

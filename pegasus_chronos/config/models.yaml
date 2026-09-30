@@ -1,0 +1,72 @@
+# PEGASUS-CHRONOS Model Configuration
+# Part I uses 6 NIM API models (black-box) + 1 judge model
+# Part II uses 1 local PyTorch model (white-box)
+
+nim_api:
+  base_url: "https://integrate.api.nvidia.com/v1"
+  api_key_env: "NVIDIA_NIM_API_KEY"
+  max_retries: 3
+  retry_base_delay: 1.0
+  retry_max_delay: 60.0
+  max_concurrent_requests: 10
+  timeout_seconds: 120
+
+  target_models:
+    nemotron_120b:
+      model_id: "nvidia/nemotron-3-super-120b-a12b"
+      display_name: "Nemotron-3 Super 120B"
+      temperature: 1.0
+      top_p: 1.0
+      max_tokens: 4096
+
+    llama_70b:
+      model_id: "meta/llama-3.3-70b-instruct"
+      display_name: "Llama 3.3 70B"
+      temperature: 1.0
+      top_p: 1.0
+      max_tokens: 4096
+
+    qwen_80b:
+      model_id: "qwen/qwen3-next-80b-a3b-instruct"
+      display_name: "Qwen3 Next 80B"
+      temperature: 1.0
+      top_p: 1.0
+      max_tokens: 4096
+
+    deepseek_flash:
+      model_id: "deepseek-ai/deepseek-v4-flash"
+      display_name: "DeepSeek V4 Flash"
+      temperature: 1.0
+      top_p: 1.0
+      max_tokens: 4096
+
+    minimax:
+      model_id: "minimaxai/minimax-m2.7"
+      display_name: "MiniMax M2.7"
+      temperature: 1.0
+      top_p: 1.0
+      max_tokens: 4096
+
+    gpt_oss:
+      model_id: "openai/gpt-oss-120b"
+      display_name: "GPT-OSS 120B"
+      temperature: 1.0
+      top_p: 1.0
+      max_tokens: 4096
+
+  judge_model:
+    model_id: "meta/llama-3.1-8b-instruct"
+    display_name: "Llama 3.1 8B (Judge)"
+    temperature: 0.0
+    top_p: 1.0
+    max_tokens: 2048
+
+local_models:
+  llama_8b:
+    model_id: "meta-llama/Llama-3-8b-instruct"
+    display_name: "Llama 3 8B (Local, White-Box)"
+    temperature: 1.0
+    device: "auto"
+    dtype: "float16"
+    max_tokens: 4096
+    attention_hook_enabled: true

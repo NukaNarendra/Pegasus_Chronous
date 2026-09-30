@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "pegasus-chronos"
+version = "0.1.0"
+description = "Empirical Discovery and Topological Containment of Cross-Session Ghost State Contamination in Frontier LLM Agents"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Nuka Venkata Narendra"}
+]
+keywords = ["ai-safety", "llm", "ghost-state", "memory-poisoning", "evaluation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.scripts]
+pegasus-run = "pegasus_chronos.scripts.run_all:main"
+pegasus-part1 = "pegasus_chronos.scripts.run_part1:main"
+pegasus-part2 = "pegasus_chronos.scripts.run_part2:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["pegasus_chronos/tests"]
+
+[tool.setuptools.packages.find]
+where = ["."] 
+include = ["pegasus_chronos*"]

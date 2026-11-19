@@ -33,7 +33,6 @@ from pegasus_chronos.core.memory import AttestableMemory
 from pegasus_chronos.core.session import SafetyControlLevel, SessionContext, SessionType
 from pegasus_chronos.judge.llm_judge import GhostStateJudge
 from pegasus_chronos.metrics.empirical import ECBSResult, compute_ecbs
-from pegasus_chronos.models.gc_client import GCClient
 
 logger = logging.getLogger(__name__)
 

@@ -31,7 +31,6 @@ from pegasus_chronos.core.memory import AttestableMemory
 from pegasus_chronos.core.session import SafetyControlLevel, SessionContext
 from pegasus_chronos.judge.llm_judge import GhostStateJudge
 from pegasus_chronos.metrics.empirical import CBPRResult, compute_cbpr
-from pegasus_chronos.models.gc_client import GCClient
 
 logger = logging.getLogger(__name__)
 

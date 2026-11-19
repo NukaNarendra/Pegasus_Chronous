@@ -33,7 +33,6 @@ from pegasus_chronos.core.memory import AttestableMemory, MemoryEntry
 from pegasus_chronos.core.session import SafetyControlLevel, SessionContext, SessionType
 from pegasus_chronos.judge.llm_judge import GhostStateJudge, JudgeVerdict
 from pegasus_chronos.metrics.empirical import DGSSResult, compute_dgss_and_esg
-from pegasus_chronos.models.gc_client import GCClient
 
 logger = logging.getLogger(__name__)
 
@@ -356,11 +355,7 @@ def main() -> None:
     print(f"=======================================================\n")
 
     judge = GhostStateJudge()
-    client = None
-    if os.getenv("GC_API_KEY"):
-        client = GCClient(api_key=os.getenv("GC_API_KEY"))
-
-    exp2 = DGSSExperiment(gc_client=client, judge=judge)
+    exp2 = DGSSExperiment(judge=judge)
     res = asyncio.run(exp2.run_experiment_for_model(model_id=args.model, trials_per_scenario=args.trials))
 
     print(f"\n[RESULTS SUMMARY]")

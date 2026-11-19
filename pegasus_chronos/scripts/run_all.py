@@ -90,7 +90,7 @@ def main() -> None:
         console.print("[yellow][WARNING] Mathematics in Part II was applied to fallback data where applicable.[/yellow]")
         console.print("[yellow][WARNING] Affected trials are flagged with 'fallback_triggered: true' in output JSON.[/yellow]")
         console.print("[dim]To collect full empirical data, upgrade to Groq Dev Tier (https://console.groq.com/settings/billing)[/dim]")
-        console.print("[dim]or use an enterprise NVIDIA NIM API key for higher TPM limits.[/dim]\n")
+        console.print("[dim]or use an enterprise General Compute API key for higher TPM limits.[/dim]\n")
 
     console.print("Results saved in [bold]results/[/bold]:")
     console.print("  - Figures: [bold]results/figures/[/bold] (7 publication figures)")

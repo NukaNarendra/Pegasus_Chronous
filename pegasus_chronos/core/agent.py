@@ -46,8 +46,6 @@ from pegasus_chronos.core.exceptions import (
 )
 from pegasus_chronos.core.memory import AttestableMemory, MemoryEntry
 from pegasus_chronos.core.session import SessionContext, SessionStatus, SessionType
-from pegasus_chronos.models.nim_client import ModelResponse, NIMClient
-from pegasus_chronos.models.local_client import LocalModelClient, LocalModelResponse
 
 logger = logging.getLogger(__name__)
 
@@ -295,163 +293,80 @@ class BasePegasusAgent(abc.ABC):
         return clean_content or content
 
 
-# ═══════════════════════════════════════════════
-# NIM AGENT (Part I Frontier Models)
-# ═══════════════════════════════════════════════
 
 
-class NIMAgent(BasePegasusAgent):
-    """Agent implementation using NVIDIA NIM API for Part I frontier models.
 
-    Includes Layer 2 resilience: routes through Groq for known Groq models,
-    falls back to Groq on NIM failure, and propagates structured exceptions
-    (ContextWindowExceededError, MaxRetriesExceededError) up to step() for
-    automatic fallback handling.
-    """
-
+class HybridAgent(BasePegasusAgent):
     def __init__(
         self,
         agent_id: str,
         session_context: SessionContext,
         shared_memory: AttestableMemory,
-        client: NIMClient,
-        model_id: str,
+        client: Any = None,
+        model_id: str = "nvidia/nemotron-3.5-bolt-e4b",
         temperature: float = 1.0,
         max_tokens: int = 4096,
+        api_key: Optional[str] = None,
     ):
-        self.client = client
         self.model_id = model_id
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.api_key = api_key
         super().__init__(agent_id, session_context, shared_memory)
 
-    # Models currently available on Groq LPU (fast inference)
-    GROQ_MODELS = {
-        "openai/gpt-oss-120b", "openai/gpt-oss-20b", "openai/gpt-oss-safeguard-20b",
-        "qwen/qwen3.8-27b", "allam-2-7b",
-        "llama-3.3-70b-versatile", "llama-3.1-70b-versatile",  # legacy names
-    }
-
-    async def _execute_model_call(self, messages: List[Dict[str, str]]) -> Tuple[str, int, float]:
-        """Execute model call with Universal routing and NIM fallback.
-
-        Raises:
-            ContextWindowExceededError: When payload permanently exceeds tier limits.
-            MaxRetriesExceededError: When all retry attempts are exhausted.
-        """
+    def _get_provider_client(self):
         import os
-        nara_key = os.environ.get("NARA_API_KEY")
-        if nara_key:
-            from pegasus_chronos.models.universal_client import UniversalClient
-            nara_url = os.environ.get("NARA_BASE_URL", "https://router.bynara.id/v1")
-            
-            # Auto-detect if user requested a specific closed-source proxy string, otherwise pass raw model ID
-            model_to_request = self.model_id
-            if "gpt-oss-120b" in self.model_id or "versatile" in self.model_id:
-                model_to_request = "gpt-4o-2024-08-06"  # Map open-weights proxy to real frontier for NeurIPS trials
-                
-            u_client = UniversalClient(
-                api_key=nara_key,
-                base_url=nara_url,
-                model_name=model_to_request
-            )
-            resp = await u_client.generate_detailed(messages, temperature=self.temperature, max_tokens=self.max_tokens)
-            await u_client.close()
-            return resp.content, resp.usage.total_tokens, resp.latency_ms
+        from openai import AsyncOpenAI
+        
+        # Dedicated NVIDIA NIM Client
+        nv_key = self.api_key or os.environ.get("NVIDIA_API_KEY") or os.environ.get("NVIDIA_NIM_API_KEY", "")
+        base_url = os.environ.get("NVIDIA_NIM_BASE_URL", "https://integrate.api.nvidia.com/v1")
+        return AsyncOpenAI(api_key=nv_key, base_url=base_url, timeout=60.0, max_retries=3)
 
-        # Original Groq fallback logic
-        is_groq = (
-            self.model_id in self.GROQ_MODELS
-            or "versatile" in self.model_id
-            or "groq" in getattr(self.client, "base_url", "").lower()
-            or "gpt-oss" in self.model_id
-        )
-        if is_groq:
-            from pegasus_chronos.models.groq_client import GroqClient
-            groq = GroqClient(model_name=self.model_id)
-            resp = await groq.generate_detailed(messages, temperature=self.temperature, max_tokens=self.max_tokens)
-            return resp.content, resp.usage.total_tokens, resp.latency_ms
-
+    async def _execute_model_call(self, messages: List[Dict[str, str]]) -> Tuple[str, int, float]:
+        import time
+        import asyncio
+        provider = self._get_provider_client()
+        t0 = time.time()
+        
+        response = None
         try:
-            resp_nim: ModelResponse = await self.client.generate(
-                messages=messages,
-                model=self.model_id,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
+            for attempt in range(4):
+                await asyncio.sleep(2.0 + attempt * 1.0)
+                try:
+                    kwargs = {
+                        "model": self.model_id,
+                        "messages": messages,
+                        "temperature": self.temperature,
+                        "max_tokens": self.max_tokens
+                    }
+                    response = await provider.chat.completions.create(**kwargs)
+                    break
+                except Exception as e:
+                    import openai
+                    from pegasus_chronos.core.exceptions import ContextWindowExceededError, ModelDeprecatedError, MaxRetriesExceededError
+                    error_str = str(e).lower()
+                    if ("403" in error_str or "429" in error_str) and attempt < 3:
+                        continue
+                    if isinstance(e, openai.APIStatusError):
+                        if e.status_code == 413: raise ContextWindowExceededError(message=str(e), model=self.model_id)
+                        elif e.status_code == 410: raise ModelDeprecatedError(message=str(e), model=self.model_id)
+                        elif e.status_code in [429, 500, 502, 503, 504]: raise MaxRetriesExceededError(message=str(e), model=self.model_id)
+                    raise MaxRetriesExceededError(message=str(e), model=self.model_id)
+        finally:
+            await provider.close()
+            
+        latency = (time.time() - t0) * 1000.0
+        msg = response.choices[0].message if response and response.choices else None
+        content = ""
+        if msg:
+            content = (
+                msg.content
+                or getattr(msg, "reasoning_content", None)
+                or getattr(msg, "reasoning", None)
+                or ""
             )
-            return resp_nim.content, resp_nim.usage.total_tokens, resp_nim.latency_ms
-        except (ContextWindowExceededError, MaxRetriesExceededError):
-            raise
-        except Exception as nim_err:
-            logger.warning("NIM API call failed (%s), falling back to Groq...", nim_err)
-            from pegasus_chronos.models.groq_client import GroqClient
-            groq = GroqClient(model_name="openai/gpt-oss-120b")
-            resp = await groq.generate_detailed(messages, temperature=self.temperature, max_tokens=self.max_tokens)
-            return resp.content, resp.usage.total_tokens, resp.latency_ms
+        tokens = response.usage.total_tokens if response and response.usage else 0
+        return content, tokens, latency
 
-
-# ═══════════════════════════════════════════════
-# UNIVERSAL AGENT (NaraRouter / Aerolink)
-# ═══════════════════════════════════════════════
-
-
-class UniversalAgent(BasePegasusAgent):
-    """High-speed agent implementation using UniversalClient for production API routers."""
-
-    def __init__(
-        self,
-        agent_id: str,
-        session_context: SessionContext,
-        shared_memory: AttestableMemory,
-        client: Any,
-        model_name: str,
-        temperature: float = 1.0,
-        max_tokens: int = 2048,
-    ):
-        self.client = client
-        self.model_name = model_name
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        super().__init__(agent_id, session_context, shared_memory)
-
-    async def _execute_model_call(self, messages: List[Dict[str, str]]) -> Tuple[str, int, float]:
-        # Let ContextWindowExceededError and MaxRetriesExceededError propagate up
-        resp = await self.client.generate_detailed(
-            messages=messages,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-        )
-        return resp.content, resp.usage.total_tokens, resp.latency_ms
-
-
-# ═══════════════════════════════════════════════
-# LOCAL PYTORCH AGENT (Part II White-Box)
-# ═══════════════════════════════════════════════
-
-
-class LocalPyTorchAgent(BasePegasusAgent):
-    """Agent implementation using local Hugging Face model for Part II white-box defenses."""
-
-    def __init__(
-        self,
-        agent_id: str,
-        session_context: SessionContext,
-        shared_memory: AttestableMemory,
-        client: LocalModelClient,
-        temperature: float = 1.0,
-        max_tokens: int = 4096,
-    ):
-        self.client = client
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        super().__init__(agent_id, session_context, shared_memory)
-
-    async def _execute_model_call(self, messages: List[Dict[str, str]]) -> Tuple[str, int, float]:
-        resp: LocalModelResponse = await self.client.generate(
-            messages=messages,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-        )
-        # Approximate tokens if not explicitly returned
-        approx_tokens = len(resp.content.split()) * 2
-        return resp.content, approx_tokens, resp.latency_ms
+GCAgent = HybridAgent

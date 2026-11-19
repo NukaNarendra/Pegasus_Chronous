@@ -35,7 +35,6 @@ from pegasus_chronos.experiments.part1_empirical.exp1_ecbs import ECBSExperiment
 from pegasus_chronos.experiments.part1_empirical.exp2_dgss import DGSSExperiment
 from pegasus_chronos.experiments.part1_empirical.exp3_cbpr import CBPRExperiment
 from pegasus_chronos.judge.llm_judge import GhostStateJudge
-from pegasus_chronos.models.nim_client import NIMClient
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("run_part1")
@@ -47,14 +46,13 @@ async def main_async(args: argparse.Namespace) -> None:
     console.print(f"Target Models: [bold]{args.models}[/bold]")
     console.print(f"Trials per condition: [bold]{args.trials}[/bold]")
 
-    # Initialize NIM Client
-    api_key = os.environ.get("NVIDIA_NIM_API_KEY", "mock_key_for_testing")
-    nim_client = NIMClient(api_key=api_key)
-    judge = GhostStateJudge(nim_client=nim_client)
+    # Initialize Judge and Experiments with active NVIDIA key
+    api_key = os.environ.get("NVIDIA_API_KEY") or os.environ.get("NVIDIA_NIM_API_KEY", "")
+    judge = GhostStateJudge(api_key=api_key)
 
-    exp1 = ECBSExperiment(nim_client=nim_client, judge=judge)
-    exp2 = DGSSExperiment(nim_client=nim_client, judge=judge)
-    exp3 = CBPRExperiment(nim_client=nim_client, judge=judge)
+    exp1 = ECBSExperiment(judge=judge, api_key=api_key)
+    exp2 = DGSSExperiment(judge=judge, api_key=api_key)
+    exp3 = CBPRExperiment(judge=judge, api_key=api_key)
 
     model_list = [m.strip() for m in args.models.split(",")]
     all_ecbs = {}
@@ -62,7 +60,7 @@ async def main_async(args: argparse.Namespace) -> None:
     all_cbpr = {}
 
     for model_name in model_list:
-        model_id = NIMClient.ALL_MODELS.get(model_name, model_name)
+        model_id = model_name
         console.print(f"\n[bold yellow]>>> Processing Model: {model_id}[/bold yellow]")
 
         if not args.skip_exp1:

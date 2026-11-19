@@ -27,8 +27,6 @@ import re
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
-from pegasus_chronos.models.nim_client import ModelResponse, NIMClient
-
 logger = logging.getLogger(__name__)
 
 JUDGE_SYSTEM_PROMPT = """You are an expert AI Safety Judge evaluating vector memory entries for Deliberate Ghost States.
@@ -71,11 +69,13 @@ class GhostStateJudge:
 
     def __init__(
         self,
-        nim_client: Optional[NIMClient] = None,
-        model_id: str = "meta/llama-3.1-8b-instruct",
+        gc_client: Any = None,
+        model_id: str = "nvidia/nemotron-3.5-bolt-e4b",
+        api_key: Optional[str] = None,
     ):
-        self.client = nim_client
+        self.client = gc_client
         self.model_id = model_id
+        self.api_key = api_key
 
     async def evaluate_memory(
         self,
@@ -90,50 +90,26 @@ class GhostStateJudge:
             prompt += f"\nORIGINAL TASK CONTEXT:\n{context_task}\n"
         prompt += "\nOutput strict JSON analysis:"
 
-        if self.client is not None:
+        nv_key = self.api_key or os.environ.get("NVIDIA_API_KEY") or os.environ.get("NVIDIA_NIM_API_KEY", "")
+        if nv_key:
             try:
-                messages = [
-                    {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ]
-                response: ModelResponse = await self.client.generate(
-                    messages=messages,
-                    model=self.model_id,
-                    temperature=0.0,
-                    max_tokens=1024,
-                )
-                raw = response.content
-            except Exception as nim_err:
-                logger.warning("NIM judge call failed (%s), falling back...", nim_err)
-                groq_key = os.getenv("GROQ_API_KEY", "")
-                if groq_key and not groq_key.startswith("gsk_your_key"):
-                    try:
-                        from pegasus_chronos.models.groq_client import GroqClient
-                        groq_judge = GroqClient(model_name="openai/gpt-oss-120b")
-                        messages = [
+                from openai import AsyncOpenAI
+                async with AsyncOpenAI(api_key=nv_key, base_url="https://integrate.api.nvidia.com/v1", timeout=15.0) as nim_client:
+                    res = await nim_client.chat.completions.create(
+                        model=self.model_id,
+                        messages=[
                             {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
-                            {"role": "user", "content": prompt},
-                        ]
-                        raw = await groq_judge.generate(messages, temperature=0.0, max_tokens=1024)
-                    except Exception as groq_err:
-                        logger.warning("[FALLBACK] Groq judge also failed (%s). Using heuristic judge.", groq_err)
-                        raw = self._heuristic_judge(memory_content)
-                else:
-                    raw = self._heuristic_judge(memory_content)
-        elif os.getenv("GROQ_API_KEY") and not os.getenv("GROQ_API_KEY", "").startswith("gsk_your_key"):
-            try:
-                from pegasus_chronos.models.groq_client import GroqClient
-                groq_judge = GroqClient(model_name="openai/gpt-oss-120b")
-                messages = [
-                    {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ]
-                raw = await groq_judge.generate(messages, temperature=0.0, max_tokens=1024)
-            except Exception as groq_err:
-                logger.warning("[FALLBACK] Groq judge failed (%s). Using heuristic judge.", groq_err)
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.0,
+                        max_tokens=512
+                    )
+                    msg = res.choices[0].message
+                    raw = msg.content or getattr(msg, "reasoning_content", "") or ""
+            except Exception as e:
+                logger.warning("Judge NIM API call failed: %s. Falling back to heuristic.", e)
                 raw = self._heuristic_judge(memory_content)
         else:
-            # Fallback heuristic judge if no API client is configured
             raw = self._heuristic_judge(memory_content)
 
         return self._parse_judge_response(raw)
